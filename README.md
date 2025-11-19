@@ -116,7 +116,7 @@ composer init
 ### 👉 Étape 3 : installer Slim + Medoo
 
 ```
-composer require slim/slim:"^4.0" slim/psr7 catfan/medoo
+composer require slim/slim:"^4.12" slim/psr7:"^1.8" catfan/medoo:"^2.2"
 ```
 
 ---
