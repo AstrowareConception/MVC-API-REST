@@ -197,6 +197,15 @@ $database = new Medoo([
 $app = AppFactory::create();
 
 $app->addBodyParsingMiddleware();
+$app->addRoutingMiddleware();
+
+// Auto‑détection du base path quand l'app est servie depuis un sous‑dossier
+// (ex.: /file-vault-api ou /file-vault-api/public)
+$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+$basePath = rtrim(str_ireplace('index.php', '', $scriptName), '/');
+if ($basePath !== '') {
+    $app->setBasePath($basePath);
+}
 
 $fileController = new FileController($database);
 
@@ -207,8 +216,56 @@ $app->post('/files', [$fileController, 'upload']);
 $app->delete('/files/{id}', [$fileController, 'delete']);
 $app->get('/stats', [$fileController, 'stats']);
 
+// Route d'accueil (GET /)
+$app->get('/', function ($request, $response) {
+    $response->getBody()->write(json_encode([
+        'message' => 'File Vault API',
+        'endpoints' => [
+            'GET /files',
+            'GET /files/{id}',
+            'GET /files/{id}/download',
+            'POST /files',
+            'DELETE /files/{id}',
+            'GET /stats',
+        ]
+    ], JSON_PRETTY_PRINT));
+    return $response->withHeader('Content-Type', 'application/json');
+});
+
 $app->run();
 ```
+
+---
+
+## ⚙️ Configuration serveur (Apache) et réécriture d’URL
+
+Sous Apache (Laragon, XAMPP, WAMP…), la racine web doit pointer vers le dossier `public/`.
+Si votre VirtualHost pointe vers la racine du projet, utilisez le fichier `public/.htaccess` pour rediriger toutes les requêtes vers `index.php`.
+
+Contenu recommandé de `public/.htaccess` (présent dans ce projet) :
+
+```apache
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Si le chemin correspond à un fichier ou dossier physique, ne pas réécrire
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Tout le reste -> index.php (Slim gère le routing)
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Facultatif: assurer l’index par défaut
+DirectoryIndex index.php
+```
+
+Notes importantes :
+- Activez le module Apache `mod_rewrite`.
+- DocumentRoot doit être `.../file-vault-api/public` ou, à défaut, conservez ce `.htaccess`.
+- L’application autodétecte son base path grâce au code ajouté dans `index.php`.
+  - Exemple d’URL de base si servi depuis un sous-dossier: `http://localhost/file-vault-api/public`
+  - Exemple d’URL de base si VirtualHost pointe sur `public/`: `http://file-vault.local/`
 
 ---
 
